@@ -13,26 +13,43 @@ export default function SwipeDeck() {
     const [photos, setPhotos] = useState<PendingPhoto[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchPending = async () => {
+    const fetchPending = async (isBackground = true) => {
         try {
+            if (!isBackground) setLoading(true);
             const res = await fetch('/api/admin/pending');
             if (res.ok) {
                 const data = await res.json();
                 setPhotos(data.photos || []);
             }
         } catch (err) {
-            console.error('Error cargando cola de fotos:', err);
+            console.error('Error cargando cola:', err);
         } finally {
             setLoading(false);
         }
     };
 
+    // Sondeo inteligente dinámico según el estado de la bandeja
     useEffect(() => {
-        fetchPending();
-        // Sondeo periódico silencioso cada 5 segundos para traer fotos nuevas
-        const interval = setInterval(fetchPending, 5000);
-        return () => clearInterval(interval);
-    }, []);
+        fetchPending(false);
+
+        const intervalTime = photos.length === 0 ? 15000 : 8000; // 15s si está vacío, 8s si hay fotos
+
+        const timer = setInterval(() => {
+            if (document.hidden) return;
+            fetchPending(true);
+        }, intervalTime);
+
+        const handleVisibility = () => {
+            if (!document.hidden) fetchPending(true);
+        };
+
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        return () => {
+            clearInterval(timer);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
+    }, [photos.length]);
 
     const handleDecision = (photoId: string, action: 'APPROVE' | 'ARCHIVE') => {
         // 1. Optimistic UI: retirar de inmediato de la pantalla del jurado
