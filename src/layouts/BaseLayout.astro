@@ -1,0 +1,81 @@
+---
+import "../styles/global.css";
+interface Props {
+    title?: string;
+    description?: string;
+    class?: string;
+}
+
+const {
+    title = "Gala Jóvenes Embajadores 2026",
+    description = "Muro interactivo y captura de fotos en vivo para la gala.",
+    class: className = "",
+} = Astro.props;
+---
+
+<!doctype html>
+<html
+    lang="es"
+    class="h-full bg-neutral-950 antialiased selection:bg-amber-400 selection:text-neutral-950"
+>
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <meta name="generator" content={Astro.generator} />
+        <meta name="description" content={description} />
+        <title>{title}</title>
+
+        <!-- Google Fonts: Plus Jakarta Sans para legibilidad limpia en móviles y pantallas -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+
+        <style is:global>
+            body {
+                font-family:
+                    "Plus Jakarta Sans",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+            }
+
+            /* Scrollbar minimalista oscuro */
+            ::-webkit-scrollbar {
+                width: 6px;
+                height: 6px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #09090b;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #27272a;
+                border-radius: 9999px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #3f3f46;
+            }
+        </style>
+    </head>
+    <body
+        class="min-h-full flex flex-col text-neutral-100 relative overflow-x-hidden"
+    >
+        <!-- Efecto sutil de iluminación ambiental tipo gala -->
+        <div
+            class="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-neutral-950/40 to-neutral-950"
+            aria-hidden="true"
+        >
+        </div>
+
+        <!-- Contenedor principal -->
+        <div class={`relative z-10 flex-1 flex flex-col ${className}`}>
+            <slot />
+        </div>
+    </body>
+</html>

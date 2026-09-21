@@ -1,0 +1,120 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { COOKIE_NAME, verifySessionToken } from "../lib/auth/session";
+
+export const prerender = false;
+
+const existingToken = Astro.cookies.get(COOKIE_NAME)?.value;
+if (existingToken) {
+    const session = await verifySessionToken(existingToken);
+    if (session) return Astro.redirect("/admin");
+}
+---
+
+<BaseLayout
+    title="Acceso Jurados | Gala 2026"
+    class="items-center justify-center p-4"
+>
+    <main
+        class="w-full max-w-sm bg-neutral-900/80 backdrop-blur-md border border-neutral-800/80 rounded-3xl p-6 shadow-2xl"
+    >
+        <div class="text-center mb-6">
+            <h1 class="text-xl font-black tracking-tight text-amber-400">
+                GALA FOTO WALL
+            </h1>
+            <p class="text-xs text-neutral-400 mt-1">
+                Panel de Jurados & Moderación
+            </p>
+        </div>
+
+        <form id="login-form" class="space-y-4">
+            <div>
+                <label
+                    class="block text-xs uppercase tracking-wider text-neutral-400 mb-1 font-semibold"
+                    for="username">Usuario</label
+                >
+                <input
+                    id="username"
+                    type="text"
+                    required
+                    autocomplete="username"
+                    placeholder="ej. daniel"
+                    class="w-full bg-neutral-950/60 border border-neutral-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-400 transition placeholder:text-neutral-600"
+                />
+            </div>
+
+            <div>
+                <label
+                    class="block text-xs uppercase tracking-wider text-neutral-400 mb-1 font-semibold"
+                    for="password">Contraseña</label
+                >
+                <input
+                    id="password"
+                    type="password"
+                    required
+                    autocomplete="current-password"
+                    placeholder="••••••••"
+                    class="w-full bg-neutral-950/60 border border-neutral-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-400 transition placeholder:text-neutral-600"
+                />
+            </div>
+
+            <p id="error-msg" class="text-rose-500 text-xs text-center hidden">
+            </p>
+
+            <button
+                type="submit"
+                id="submit-btn"
+                class="w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-neutral-950 font-bold py-3 rounded-xl text-sm transition active:scale-[0.98] shadow-lg shadow-amber-500/10"
+            >
+                Entrar al Panel
+            </button>
+        </form>
+    </main>
+
+    <script>
+        const form = document.getElementById("login-form") as HTMLFormElement;
+        const errorMsg = document.getElementById(
+            "error-msg",
+        ) as HTMLParagraphElement;
+        const submitBtn = document.getElementById(
+            "submit-btn",
+        ) as HTMLButtonElement;
+
+        form?.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            errorMsg.classList.add("hidden");
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Verificando...";
+
+            const username = (
+                document.getElementById("username") as HTMLInputElement
+            ).value;
+            const password = (
+                document.getElementById("password") as HTMLInputElement
+            ).value;
+
+            try {
+                const res = await fetch("/api/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    errorMsg.innerText =
+                        data.error || "Error al iniciar sesión";
+                    errorMsg.classList.remove("hidden");
+                } else {
+                    window.location.href = "/admin";
+                }
+            } catch {
+                errorMsg.innerText = "Error de conexión con el servidor";
+                errorMsg.classList.remove("hidden");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Entrar al Panel";
+            }
+        });
+    </script>
+</BaseLayout>
