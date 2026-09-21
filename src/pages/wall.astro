@@ -1,0 +1,20 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import LiveWall from "../components/wall/LiveWall";
+
+export const prerender = false;
+
+// Prioriza la IP o dominio público configurado en el .env
+const publicUrl =
+    import.meta.env.PUBLIC_APP_URL ||
+    process.env.PUBLIC_APP_URL ||
+    Astro.url.origin;
+---
+
+<BaseLayout
+    title="Muro en Vivo | Gala Jóvenes Embajadores 2026"
+    hideAmbient
+    class="h-screen w-screen overflow-hidden p-0 m-0"
+>
+    <LiveWall client:only="react" qrUrl={publicUrl} />
+</BaseLayout>

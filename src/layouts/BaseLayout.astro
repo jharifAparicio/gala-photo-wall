@@ -4,12 +4,14 @@ interface Props {
     title?: string;
     description?: string;
     class?: string;
+    hideAmbient?: boolean;
 }
 
 const {
     title = "Gala Jóvenes Embajadores 2026",
     description = "Muro interactivo y captura de fotos en vivo para la gala.",
     class: className = "",
+    hideAmbient = false,
 } = Astro.props;
 ---
 
@@ -29,7 +31,6 @@ const {
         <meta name="description" content={description} />
         <title>{title}</title>
 
-        <!-- Google Fonts: Plus Jakarta Sans para legibilidad limpia en móviles y pantallas -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
@@ -45,8 +46,6 @@ const {
                     -apple-system,
                     sans-serif;
             }
-
-            /* Scrollbar minimalista oscuro */
             ::-webkit-scrollbar {
                 width: 6px;
                 height: 6px;
@@ -58,22 +57,21 @@ const {
                 background: #27272a;
                 border-radius: 9999px;
             }
-            ::-webkit-scrollbar-thumb:hover {
-                background: #3f3f46;
-            }
         </style>
     </head>
     <body
-        class="min-h-full flex flex-col text-neutral-100 relative overflow-x-hidden"
+        class="min-h-full flex flex-col text-neutral-100 relative overflow-x-hidden bg-black"
     >
-        <!-- Efecto sutil de iluminación ambiental tipo gala -->
-        <div
-            class="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-neutral-950/40 to-neutral-950"
-            aria-hidden="true"
-        >
-        </div>
+        {/* Resplandor ambiental de gala (se desactiva en modo proyector) */}
+        {
+            !hideAmbient && (
+                <div
+                    class="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-neutral-950/40 to-neutral-950"
+                    aria-hidden="true"
+                />
+            )
+        }
 
-        <!-- Contenedor principal -->
         <div class={`relative z-10 flex-1 flex flex-col ${className}`}>
             <slot />
         </div>
