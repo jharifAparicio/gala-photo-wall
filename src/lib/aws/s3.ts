@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export const s3Client = new S3Client({
@@ -16,6 +16,15 @@ export async function createUploadPresignedUrl(key: string, contentType: string,
         Bucket: BUCKET_NAME,
         Key: key,
         ContentType: contentType,
+    });
+    return await getSignedUrl(s3Client, command, { expiresIn });
+}
+
+// Nueva función: genera URL firmada de lectura válida por 1 hora
+export async function createDownloadPresignedUrl(key: string, expiresIn = 3600): Promise<string> {
+    const command = new GetObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
     });
     return await getSignedUrl(s3Client, command, { expiresIn });
 }
