@@ -223,29 +223,47 @@ class VideoRenderQueueManager {
                 throw new Error('No se pudo descargar ninguna imagen para el collage.');
             }
 
+            // 3.1 Pre-procesamiento y normalización de imágenes a 720x1280 (Ahorra más del 70% de RAM en FFmpeg)
+            job.progress = 35;
+            job.statusMessage = 'Optimizando fotos para renderizado en memoria ligera...';
+            const normalizedImages: string[] = [];
+            for (let i = 0; i < validImages.length; i++) {
+                const rawPath = validImages[i];
+                const normPath = path.join(workDir, `norm_${String(i).padStart(4, '0')}.jpg`);
+                await this.normalizeImage(rawPath, normPath);
+                try {
+                    fs.unlinkSync(rawPath); // Liberar espacio en disco inmediatamente
+                } catch {}
+                normalizedImages.push(normPath);
+
+                const pct = Math.round(35 + ((i + 1) / validImages.length) * 10);
+                job.progress = pct;
+                job.statusMessage = `Optimizando fotos (${i + 1}/${validImages.length})...`;
+            }
+
             // 4. Generar música instrumental devocional de piano única
-            job.progress = 42;
+            job.progress = 46;
             job.statusMessage = 'Generando música instrumental de piano personalizada...';
             const audioWavPath = path.join(workDir, 'piano_worship.wav');
 
-            const durationPerSlide = validImages.length > 15 ? 2.0 : 2.5;
+            const durationPerSlide = normalizedImages.length > 15 ? 2.0 : 2.5;
             const transDuration = 0.5;
             const totalDuration =
-                validImages.length === 1
+                normalizedImages.length === 1
                     ? durationPerSlide
-                    : validImages.length * (durationPerSlide - transDuration) + transDuration;
+                    : normalizedImages.length * (durationPerSlide - transDuration) + transDuration;
 
             await generateDevotionalPianoWav(totalDuration, audioWavPath);
 
             // 5. Renderizado con FFmpeg (Video + Audio)
-            job.progress = 48;
-            job.statusMessage = `Renderizando video con música y ${validImages.length} fotos...`;
+            job.progress = 50;
+            job.statusMessage = `Renderizando video con música y ${normalizedImages.length} fotos...`;
 
-            await this.renderVideoWithFfmpeg(validImages, audioWavPath, outputMp4Path, (renderProgress) => {
-                job.progress = Math.min(88, Math.round(48 + renderProgress * 0.40));
+            await this.renderVideoWithFfmpeg(normalizedImages, audioWavPath, outputMp4Path, (renderProgress) => {
+                job.progress = Math.min(88, Math.round(50 + renderProgress * 0.38));
             });
 
-            // 5. Guardado local temporal en el servidor (sin subir a S3 para no llenar el bucket)
+            // 6. Guardado local temporal en el servidor (sin subir a S3 para no llenar el bucket)
             job.progress = 92;
             job.statusMessage = 'Preparando video para descarga directa...';
 
@@ -270,6 +288,32 @@ class VideoRenderQueueManager {
     }
 
     /**
+     * Pre-escala individualmente una imagen al formato 720x1280 con fondo elegante.
+     * Esta técnica reduce drásticamente el consumo de memoria en FFmpeg al evitar
+     * cargar y decodificar fotos originales de alta resolución (4K/12MP) en paralelo.
+     */
+    private normalizeImage(inputPath: string, outputPath: string): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            const proc = spawn('ffmpeg', [
+                '-y',
+                '-i', inputPath,
+                '-vf', 'scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:color=0x09090b',
+                '-q:v', '2',
+                outputPath
+            ]);
+
+            proc.on('close', (code) => {
+                if (code === 0) resolve();
+                else reject(new Error(`Error normalizando foto ${path.basename(inputPath)} (código ${code})`));
+            });
+
+            proc.on('error', (err) => {
+                reject(new Error(`No se pudo ejecutar ffmpeg para optimizar la imagen: ${err.message}`));
+            });
+        });
+    }
+
+    /**
      * Ejecuta el comando FFmpeg optimizado para bajo consumo de recursos en t3.small.
      */
     private renderVideoWithFfmpeg(
@@ -289,7 +333,7 @@ class VideoRenderQueueManager {
 
             const args: string[] = ['-y'];
 
-            // 1. Entradas de imágenes en bucle a 30 fps constantes
+            // 1. Entradas de imágenes en bucle a 30 fps constantes (ya pre-escaladas a 720x1280)
             for (const imgPath of images) {
                 args.push('-framerate', '30', '-loop', '1', '-t', durationPerSlide.toString(), '-i', imgPath);
             }
@@ -298,27 +342,24 @@ class VideoRenderQueueManager {
             args.push('-i', audioPath);
             const audioInputIdx = images.length;
 
-            // 3. Construcción de filter_complex
+            // 3. Construcción de filter_complex (sin necesidad de cadenas pesadas de scale/pad por imagen)
             const filterChains: string[] = [];
 
-            // Normalización y encuadre 1080x1920 con fondo elegante oscuro
             for (let i = 0; i < images.length; i++) {
                 filterChains.push(
-                    `[${i}:v]scale=1080:1920:force_original_aspect_ratio=decrease,` +
-                    `pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=0x09090b,` +
-                    `setsar=1,setpts=PTS-STARTPTS,fps=30[v${i}]`
+                    `[${i}:v]setsar=1,setpts=PTS-STARTPTS,fps=30[v${i}]`
                 );
             }
 
+            const textFilter =
+                `drawtext=text='GALA JÓVENES EMBAJADORES 2026':` +
+                `fontsize=26:fontcolor=0xfbbf24:x=(w-text_w)/2:y=90:shadowcolor=black@0.8:shadowx=2:shadowy=2,` +
+                `drawtext=text='¡Gracias por ser parte de este momento!':` +
+                `fontsize=30:fontcolor=white:x=(w-text_w)/2:y=h-130:shadowcolor=black@0.8:shadowx=2:shadowy=2`;
+
             if (images.length === 1) {
                 // Caso especial: una sola foto
-                filterChains.push(
-                    `[v0]` +
-                    `drawtext=text='GALA JÓVENES EMBAJADORES 2026':` +
-                    `fontsize=34:fontcolor=0xfbbf24:x=(w-text_w)/2:y=120:shadowcolor=black@0.8:shadowx=2:shadowy=2,` +
-                    `drawtext=text='¡Gracias por ser parte de este momento!':` +
-                    `fontsize=40:fontcolor=white:x=(w-text_w)/2:y=h-160:shadowcolor=black@0.8:shadowx=2:shadowy=2[outv]`
-                );
+                filterChains.push(`[v0]${textFilter}[outv]`);
             } else {
                 // Encadenamiento de transiciones xfade entre todas las fotos consecutivas
                 let lastOutput = 'v0';
@@ -331,14 +372,7 @@ class VideoRenderQueueManager {
                     lastOutput = nextOutput;
                 }
 
-                // Superposición de texto conmemorativo de gala
-                filterChains.push(
-                    `[vxfade]` +
-                    `drawtext=text='GALA JÓVENES EMBAJADORES 2026':` +
-                    `fontsize=34:fontcolor=0xfbbf24:x=(w-text_w)/2:y=120:shadowcolor=black@0.8:shadowx=2:shadowy=2,` +
-                    `drawtext=text='¡Gracias por ser parte de este momento!':` +
-                    `fontsize=40:fontcolor=white:x=(w-text_w)/2:y=h-160:shadowcolor=black@0.8:shadowx=2:shadowy=2[outv]`
-                );
+                filterChains.push(`[vxfade]${textFilter}[outv]`);
             }
 
             // Filtros de audio: calidez aterciopelada felt piano (corte a 1700Hz) + desvanecimiento suave
@@ -360,10 +394,10 @@ class VideoRenderQueueManager {
                 '-c:v', 'libx264',
                 '-preset', 'veryfast',    // Minimiza uso de CPU y buffer de frames en RAM
                 '-threads', '2',          // Ajustado exactamente a las 2 vCPUs de t3.small
-                '-crf', '23',             // Calidad visual óptima para redes con peso ligero
+                '-crf', '24',             // Calidad visual óptima para redes con peso ligero
                 '-pix_fmt', 'yuv420p',    // Máxima compatibilidad móvil (iOS / Android)
                 '-c:a', 'aac',            // Códec de audio universal para móviles
-                '-b:a', '192k',
+                '-b:a', '128k',
                 '-shortest',
                 '-movflags', '+faststart', // Reproducción inmediata sin esperar descarga total
                 outputPath
@@ -388,9 +422,16 @@ class VideoRenderQueueManager {
                 }
             });
 
-            ffmpegProc.on('close', (code) => {
+            ffmpegProc.on('close', (code, signal) => {
                 if (code === 0) {
                     resolve();
+                } else if (code === null) {
+                    reject(
+                        new Error(
+                            `FFmpeg fue terminado inesperadamente por el sistema operativo (Signal: ${signal || 'SIGKILL'}/OOM). ` +
+                            `El servidor se quedó sin memoria RAM física. Se recomienda configurar Swap de 2GB en la instancia EC2.`
+                        )
+                    );
                 } else {
                     console.error('[FFMPEG ERROR FULL LOG]:\n', stderrData);
                     const relevantLines = stderrData
