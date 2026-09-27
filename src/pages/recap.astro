@@ -1,0 +1,36 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import VideoCollageGenerator from "../components/video/VideoCollageGenerator";
+
+export const prerender = false;
+---
+
+<BaseLayout
+    title="Video Recuerdo | Gala Jóvenes Embajadores 2026"
+    class="p-4 max-w-md mx-auto justify-between min-h-screen"
+>
+    <header class="text-center pt-6">
+        <span class="text-[10px] font-bold uppercase tracking-widest text-amber-400/90 bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20">
+            Jóvenes Embajadores 2026
+        </span>
+        <h1 class="text-2xl font-black tracking-tight text-white mt-3">
+            Video Recuerdo
+        </h1>
+        <p class="text-xs text-neutral-400 mt-1">
+            Genera un reel conmemorativo personalizado con momentos de la gala
+        </p>
+    </header>
+
+    <main class="w-full my-auto py-4">
+        <VideoCollageGenerator client:load />
+    </main>
+
+    <footer class="text-center pb-6 text-xs text-neutral-600 space-y-2">
+        <div>
+            <a href="/" class="text-amber-400/80 hover:text-amber-300 text-xs font-semibold transition">
+                ← Volver al inicio
+            </a>
+        </div>
+        <p>© 2026 Gala Jóvenes Embajadores</p>
+    </footer>
+</BaseLayout>

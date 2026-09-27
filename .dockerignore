@@ -1,0 +1,9 @@
+node_modules
+.astro
+dist
+.git
+.env
+exports/temp_videos
+exports/raw_photos
+exports/*.zip
+*.log
