@@ -53,7 +53,8 @@ export default function CameraUploader() {
             });
 
             if (!presignRes.ok) {
-                throw new Error('Error al obtener permiso de subida del servidor');
+                const errData = await presignRes.json().catch(() => ({}));
+                throw new Error(errData.error || 'Error al obtener permiso de subida del servidor');
             }
 
             const { uploadUrl } = await presignRes.json();

@@ -3,11 +3,24 @@ import { randomUUID } from 'crypto';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { dynamoDocClient, PHOTOS_TABLE } from '../../../lib/aws/dynamo';
 import { createUploadPresignedUrl, BUCKET_NAME } from '../../../lib/aws/s3';
+import { areUploadsEnabled } from '../../../lib/config';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request }) => {
     try {
+        if (!areUploadsEnabled()) {
+            return new Response(
+                JSON.stringify({
+                    error: 'El evento ha finalizado y la recepción de fotos está cerrada. ¡Gracias por participar!',
+                }),
+                {
+                    status: 403,
+                    headers: { 'Content-Type': 'application/json' },
+                }
+            );
+        }
+
         const body = await request.json().catch(() => ({}));
         const authorName = (body.authorName || 'Invitado').toString().trim().slice(0, 40);
 
