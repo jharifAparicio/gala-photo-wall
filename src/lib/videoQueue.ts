@@ -289,9 +289,9 @@ class VideoRenderQueueManager {
 
             const args: string[] = ['-y'];
 
-            // 1. Entradas de imágenes en bucle
+            // 1. Entradas de imágenes en bucle a 30 fps constantes
             for (const imgPath of images) {
-                args.push('-loop', '1', '-t', durationPerSlide.toString(), '-i', imgPath);
+                args.push('-framerate', '30', '-loop', '1', '-t', durationPerSlide.toString(), '-i', imgPath);
             }
 
             // 2. Entrada de audio (pista de piano devocional generada proceduralmente)
@@ -306,7 +306,7 @@ class VideoRenderQueueManager {
                 filterChains.push(
                     `[${i}:v]scale=1080:1920:force_original_aspect_ratio=decrease,` +
                     `pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=0x09090b,` +
-                    `setsar=1,fps=30,settb=AVTB,setpts=PTS-STARTPTS[v${i}]`
+                    `setsar=1,setpts=PTS-STARTPTS,fps=30[v${i}]`
                 );
             }
 
@@ -342,11 +342,15 @@ class VideoRenderQueueManager {
             }
 
             // Filtros de audio: calidez aterciopelada felt piano (corte a 1700Hz) + desvanecimiento suave
+            const fadeInDuration = Math.min(2.0, Math.max(0.5, totalDuration * 0.1));
+            const fadeOutDuration = Math.min(3.0, Math.max(0.5, totalDuration * 0.15));
+            const fadeOutStart = Math.max(0, totalDuration - fadeOutDuration);
+
             filterChains.push(
                 `[${audioInputIdx}:a]lowpass=f=1700,` +
                 `volume=1.45,` +
-                `afade=t=in:ss=0:d=2.0,` +
-                `afade=t=out:st=${Math.max(0, totalDuration - 3)}:d=3.0[aout]`
+                `afade=t=in:ss=0:d=${fadeInDuration.toFixed(2)},` +
+                `afade=t=out:st=${fadeOutStart.toFixed(2)}:d=${fadeOutDuration.toFixed(2)}[aout]`
             );
 
             args.push(
@@ -388,7 +392,13 @@ class VideoRenderQueueManager {
                 if (code === 0) {
                     resolve();
                 } else {
-                    reject(new Error(`FFmpeg finalizó con código de error ${code}. Log: ${stderrData.slice(-300)}`));
+                    console.error('[FFMPEG ERROR FULL LOG]:\n', stderrData);
+                    const relevantLines = stderrData
+                        .split('\n')
+                        .filter(l => l.includes('Error') || l.includes('error') || l.includes('Invalid') || l.includes('invalid') || l.includes('Failed') || l.startsWith('['))
+                        .slice(-8)
+                        .join(' | ');
+                    reject(new Error(`FFmpeg finalizó con código de error ${code}. Log: ${relevantLines || stderrData.slice(-500)}`));
                 }
             });
 
